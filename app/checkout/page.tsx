@@ -31,7 +31,7 @@ const CheckoutPage = () => {
   });
   const { products, total, clearCart } = useProductStore();
   const router = useRouter();
-  var amount = total;
+  var amount = total + total/5 +5;
   
 
   useEffect(() => {
