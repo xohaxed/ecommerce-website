@@ -11,7 +11,7 @@ import convertToSubcurrency from "@/lib/utils"
 
 const CheckoutBox = ({ amount }: { amount: number }) => {
   const router = useRouter()
-  const { products, total, clearCart, calculateTotals } = useProductStore()
+  const { products, calculateTotals } = useProductStore()
   const stripe = useStripe()
   const elements = useElements()
 
@@ -93,87 +93,6 @@ const CheckoutBox = ({ amount }: { amount: number }) => {
     return true
   }
 
-  const addOrderProduct = async (orderId: string, productId: string, productQuantity: number) => {
-    // Using relative URL instead of hardcoded localhost
-    await fetch("/api/order-product", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        customerOrderId: orderId,
-        productId: productId,
-        quantity: productQuantity,
-      }),
-    })
-  }
-
-  const createOrder = async () => {
-    try {
-      // Calculate totals one more time to ensure we have the latest value
-      calculateTotals()
-
-      // Using relative URL instead of hardcoded localhost
-      const response = await fetch("http://localhost:3001/api/orders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: checkoutForm.name,
-          lastname: checkoutForm.lastname,
-          phone: checkoutForm.phone,
-          email: checkoutForm.email,
-          company: checkoutForm.company,
-          adress: checkoutForm.adress,
-          apartment: checkoutForm.apartment,
-          postalCode: checkoutForm.postalCode,
-          status: "processing",
-          total: total,
-          city: checkoutForm.city,
-          country: checkoutForm.country,
-          orderNotice: checkoutForm.orderNotice,
-        }),
-      })
-
-      const data = await response.json()
-      const orderId: string = data.id
-
-      // Add each product to the order
-      for (let i = 0; i < products.length; i++) {
-        await addOrderProduct(orderId, products[i].id, products[i].amount)
-      }
-
-      // Reset form and cart
-      setCheckoutForm({
-        name: "",
-        lastname: "",
-        phone: "",
-        email: "",
-        company: "",
-        adress: "",
-        apartment: "",
-        city: "",
-        country: "",
-        postalCode: "",
-        orderNotice: "",
-      })
-
-      clearCart()
-      toast.success("Order created successfully")
-
-      setTimeout(() => {
-        router.push("/")
-      }, 1000)
-
-      return true
-    } catch (error) {
-      console.error("Error creating order:", error)
-      toast.error("Failed to create order")
-      return false
-    }
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -188,9 +107,6 @@ const CheckoutBox = ({ amount }: { amount: number }) => {
 
     setLoading(true)
 
-   
-
-    
     const { error: submitError } = await elements.submit()
 
     if (submitError) {
@@ -198,27 +114,22 @@ const CheckoutBox = ({ amount }: { amount: number }) => {
       setLoading(false)
       return
     }
-     // First create the order
-     const orderCreated = await createOrder()
-     if (!orderCreated) {
-       setLoading(false)
-       return
-     }
-     // Then process the payment
+
+    // Process the payment
     const { error } = await stripe.confirmPayment({
       elements,
       clientSecret,
       confirmParams: {
-        return_url: `${window.location.origin}/payment-success?amount=${amount}/`,
+        // Pass form data as URL-encoded JSON
+        return_url: `${window.location.origin}/payment-success?amount=${amount}&formData=${encodeURIComponent(JSON.stringify(checkoutForm))}`,
       },
     })
 
     if (error) {
       setErrorMessage(error.message || "Something went wrong")
       toast.error(error.message || "Payment failed")
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   if (!clientSecret || !stripe || !elements) {
@@ -243,7 +154,9 @@ const CheckoutBox = ({ amount }: { amount: number }) => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+              First Name *
+            </label>
             <input
               type="text"
               id="name"
@@ -256,7 +169,9 @@ const CheckoutBox = ({ amount }: { amount: number }) => {
           </div>
 
           <div>
-            <label htmlFor="lastname" className="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
+            <label htmlFor="lastname" className="block text-sm font-medium text-gray-700 mb-2">
+              Last Name *
+            </label>
             <input
               type="text"
               id="lastname"
@@ -271,7 +186,9 @@ const CheckoutBox = ({ amount }: { amount: number }) => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              Email Address *
+            </label>
             <input
               type="email"
               id="email"
@@ -284,7 +201,9 @@ const CheckoutBox = ({ amount }: { amount: number }) => {
           </div>
 
           <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+              Phone Number *
+            </label>
             <input
               type="tel"
               id="phone"
@@ -298,7 +217,9 @@ const CheckoutBox = ({ amount }: { amount: number }) => {
         </div>
 
         <div className="mt-6">
-          <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-2">Company *</label>
+          <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-2">
+            Company *
+          </label>
           <input
             type="text"
             id="company"
@@ -311,7 +232,9 @@ const CheckoutBox = ({ amount }: { amount: number }) => {
         </div>
 
         <div className="mt-6">
-          <label htmlFor="adress" className="block text-sm font-medium text-gray-700 mb-2">Address *</label>
+          <label htmlFor="adress" className="block text-sm font-medium text-gray-700 mb-2">
+            Address *
+          </label>
           <input
             type="text"
             id="adress"
@@ -324,7 +247,9 @@ const CheckoutBox = ({ amount }: { amount: number }) => {
         </div>
 
         <div className="mt-6">
-          <label htmlFor="apartment" className="block text-sm font-medium text-gray-700 mb-2">Apartment, suite, etc. (optional)</label>
+          <label htmlFor="apartment" className="block text-sm font-medium text-gray-700 mb-2">
+            Apartment, suite, etc. (optional)
+          </label>
           <input
             type="text"
             id="apartment"
@@ -337,7 +262,9 @@ const CheckoutBox = ({ amount }: { amount: number }) => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
           <div>
-            <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">City *</label>
+            <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
+              City *
+            </label>
             <input
               type="text"
               id="city"
@@ -350,7 +277,9 @@ const CheckoutBox = ({ amount }: { amount: number }) => {
           </div>
 
           <div>
-            <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-2">Country *</label>
+            <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-2">
+              Country *
+            </label>
             <input
               type="text"
               id="country"
@@ -363,7 +292,9 @@ const CheckoutBox = ({ amount }: { amount: number }) => {
           </div>
 
           <div>
-            <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-2">Postal Code *</label>
+            <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-2">
+              Postal Code *
+            </label>
             <input
               type="text"
               id="postalCode"
@@ -377,7 +308,9 @@ const CheckoutBox = ({ amount }: { amount: number }) => {
         </div>
 
         <div className="mt-6">
-          <label htmlFor="orderNotice" className="block text-sm font-medium text-gray-700 mb-2">Order Notes (optional)</label>
+          <label htmlFor="orderNotice" className="block text-sm font-medium text-gray-700 mb-2">
+            Order Notes (optional)
+          </label>
           <textarea
             id="orderNotice"
             name="orderNotice"
