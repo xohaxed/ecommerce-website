@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { CheckCircle, XCircle, Clock } from "lucide-react"
 import toast from "react-hot-toast"
@@ -14,6 +14,9 @@ export default function PaymentSuccess() {
   const [paymentStatus, setPaymentStatus] = useState<"success" | "processing" | "error">("processing")
   const [orderCreated, setOrderCreated] = useState(false)
 
+  // Use a ref to track if order creation has been attempted
+  const orderCreationAttempted = useRef(false)
+
   useEffect(() => {
     const amount = searchParams.get("amount")
     const formDataParam = searchParams.get("formData")
@@ -25,8 +28,12 @@ export default function PaymentSuccess() {
       return
     }
 
-    // Verify payment status and create order
-    verifyPaymentAndCreateOrder(paymentIntentId, formDataParam)
+    // Only proceed if we haven't attempted order creation yet
+    if (!orderCreationAttempted.current) {
+      orderCreationAttempted.current = true
+      // Verify payment status and create order
+      verifyPaymentAndCreateOrder(paymentIntentId, formDataParam)
+    }
   }, [searchParams])
 
   const verifyPaymentAndCreateOrder = async (paymentIntentId: string, formDataParam: string) => {
