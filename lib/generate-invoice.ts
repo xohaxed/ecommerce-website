@@ -11,6 +11,21 @@ export async function generateInvoice(orderData: OrderData): Promise<string> {
   }
 
   console.log("Generating invoice for order:", orderData.id)
+  console.log("Products for invoice:", orderData.products)
+
+  // Ensure products array exists
+  if (!orderData.products || orderData.products.length === 0) {
+    console.warn("No products found in order data")
+    // Create a dummy product if none exist
+    orderData.products = [
+      {
+        id: "dummy",
+        title: "Order Total",
+        price: orderData.total || 0,
+        amount: 1,
+      },
+    ]
+  }
 
   try {
     // First try to load scripts directly if they're not already loaded
@@ -47,7 +62,7 @@ export async function generateInvoice(orderData: OrderData): Promise<string> {
     // Add invoice info
     doc.setFontSize(12)
     doc.text(`Invoice #: ${orderData.id}`, 20, 50)
-    doc.text(`Date: ${orderData.date || new Date().toLocaleDateString()}`, 20, 57)
+    doc.text(`Date: ${orderData.date}`, 20, 57)
 
     // Add customer info
     doc.text("Bill To:", 20, 70)
@@ -70,25 +85,25 @@ export async function generateInvoice(orderData: OrderData): Promise<string> {
       console.warn("Error checking for autoTable:", e)
     }
 
-    // Ensure products array exists
-    const products = orderData.products || []
-    console.log("Products for invoice:", products)
-
     if (autoTableAvailable) {
       // Use autoTable if available
       const tableColumn = ["Product", "Quantity", "Price", "Total"]
 
-      const tableRows = products.map((product) => [
-        product.title ,
+      // Ensure products array exists and has proper titles
+      const products =
+        orderData.products && orderData.products.length > 0
+          ? orderData.products.map((p) => ({
+              ...p,
+              title: p.title , // Ensure we have a title
+            }))
+          : [{ title: "Order Total", amount: 1, price: orderData.total || 0 }]
+
+      const tableRows = products.map((product: any) => [
+        product.title, // Use the product title
         product.amount || 1,
         `$${(product.price || 0).toFixed(2)}`,
         `$${((product.price || 0) * (product.amount || 1)).toFixed(2)}`,
       ])
-
-      // If no products, add a placeholder row
-      if (tableRows.length === 0) {
-        tableRows.push(["Order Total", 1, `$${orderData.total.toFixed(2)}`, `$${orderData.total.toFixed(2)}`])
-      }
 
       doc.autoTable({
         head: [tableColumn],
@@ -138,33 +153,32 @@ export async function generateInvoice(orderData: OrderData): Promise<string> {
       // Reset text color for table body
       doc.setTextColor(0, 0, 0)
 
+      // Ensure products array exists and has proper titles
+      const products =
+        orderData.products && orderData.products.length > 0
+          ? orderData.products.map((p) => ({
+              ...p,
+              title: p.title , // Ensure we have a title
+            }))
+          : [{ title: "Order Total", amount: 1, price: orderData.total || 0 }]
+
       // Draw table rows
       let isAlternate = false
+      products.forEach((product: any, index: number) => {
+        // Alternate row background
+        if (isAlternate) {
+          doc.setFillColor(240, 240, 240)
+          doc.rect(20, yPos - 5, 160, 10, "F")
+        }
+        isAlternate = !isAlternate
 
-      if (products.length === 0) {
-        // If no products, add a placeholder row
-        doc.text("Order Total", 25, yPos)
-        doc.text("1", 85, yPos)
-        doc.text(`$${orderData.total.toFixed(2)}`, 125, yPos)
-        doc.text(`$${orderData.total.toFixed(2)}`, 160, yPos)
+        doc.text(product.title, 25, yPos) // Use the product title
+        doc.text(product.amount?.toString() || "1", 85, yPos)
+        doc.text(`$${(product.price || 0).toFixed(2)}`, 125, yPos)
+        doc.text(`$${((product.price || 0) * (product.amount || 1)).toFixed(2)}`, 160, yPos)
+
         yPos += 10
-      } else {
-        products.forEach((product, index) => {
-          // Alternate row background
-          if (isAlternate) {
-            doc.setFillColor(240, 240, 240)
-            doc.rect(20, yPos - 5, 160, 10, "F")
-          }
-          isAlternate = !isAlternate
-
-          doc.text(product.title , 25, yPos)
-          doc.text(product.amount?.toString() || "1", 85, yPos)
-          doc.text(`$${(product.price || 0).toFixed(2)}`, 125, yPos)
-          doc.text(`$${((product.price || 0) * (product.amount || 1)).toFixed(2)}`, 160, yPos)
-
-          yPos += 10
-        })
-      }
+      })
 
       yPos += 10
 
@@ -209,25 +223,20 @@ export async function generateInvoice(orderData: OrderData): Promise<string> {
       doc.text("INVOICE", 105, 20, { align: "center" })
       doc.setFontSize(12)
       doc.text(`Order #: ${orderData.id}`, 20, 40)
-      doc.text(`Date: ${orderData.date || new Date().toLocaleDateString()}`, 20, 50)
+      doc.text(`Date: ${orderData.date}`, 20, 50)
       doc.text(`Customer: ${orderData.name} ${orderData.lastname}`, 20, 60)
 
-      // Add product list
+      // Add product list with actual titles
       let yPos = 80
       doc.setFontSize(12)
       doc.text("Products:", 20, yPos)
       yPos += 10
 
       doc.setFontSize(10)
-      const products = orderData.products || []
-
-      if (products.length === 0) {
-        doc.text("Order Total", 30, yPos)
-        yPos += 7
-      } else {
-        products.forEach((product) => {
+      if (orderData.products && orderData.products.length > 0) {
+        orderData.products.forEach((product, index) => {
           doc.text(
-            `${product.title } x${product.amount || 1} - $${((product.price || 0) * (product.amount || 1)).toFixed(2)}`,
+            `${product.title } x${product.amount} - $${(product.price * product.amount).toFixed(2)}`,
             30,
             yPos,
           )
