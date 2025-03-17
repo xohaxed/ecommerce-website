@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useState, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { CheckCircle, XCircle, Clock, FileText, Download } from "lucide-react"
+import { CheckCircle, XCircle, Clock, FileText, Download, Mail } from "lucide-react"
 import toast from "react-hot-toast"
 import { useProductStore } from "../_zustand/store"
 import Script from "next/script"
@@ -17,7 +17,11 @@ export default function PaymentSuccess() {
   const [paymentStatus, setPaymentStatus] = useState<"success" | "processing" | "error">("processing")
   const [orderCreated, setOrderCreated] = useState(false)
   const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null)
+  const [invoiceBase64, setInvoiceBase64] = useState<string | null>(null)
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false)
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
 
   // Track script loading status separately
   const [jspdfLoaded, setJspdfLoaded] = useState(false)
@@ -44,6 +48,14 @@ export default function PaymentSuccess() {
 
     return () => clearTimeout(timer)
   }, [scriptsLoaded])
+
+  // Auto-generate and send invoice when order is created and scripts are loaded
+  useEffect(() => {
+    if (orderCreated && scriptsLoaded && !isGeneratingInvoice && !invoiceUrl && !emailSent && !isLoading) {
+      console.log("Auto-generating invoice...")
+      handleGenerateAndSendInvoice()
+    }
+  }, [orderCreated, scriptsLoaded, isLoading])
 
   useEffect(() => {
     const amount = searchParams.get("amount")
@@ -292,7 +304,7 @@ export default function PaymentSuccess() {
         // If no saved data or error parsing, reconstruct with current state
         // Fetch products for this order
         try {
-          const productsResponse = await fetch(`/api/fetch-order-product?orderId=${existingOrderId}`)
+          const productsResponse = await fetch(`/api/order-product?orderId=${existingOrderId}`)
           const productsData = await productsResponse.json()
 
           return {
@@ -335,8 +347,8 @@ export default function PaymentSuccess() {
 
       // Calculate tax and shipping
       const subtotal = total
-      const tax = subtotal * 0.2 // Assuming 5% tax
-      const shipping = 5 // Assuming $5 shipping
+      const tax = subtotal * 0.2 // Using 20% tax rate
+      const shipping = 5 // Using $5 shipping
       const finalTotal = subtotal + tax + shipping
 
       console.log("Creating order with products:", currentProducts)
@@ -392,7 +404,7 @@ export default function PaymentSuccess() {
         ...formData,
         products: currentProducts.map((p) => ({
           id: p.id,
-          title: p.title , // Map name to title for invoice
+          title: p.title || "Unknown Product", // Use title for invoice
           price: p.price,
           amount: p.amount,
           mainImage: p.image, // Map image to mainImage
@@ -417,7 +429,8 @@ export default function PaymentSuccess() {
     }
   }
 
-  const handleGenerateInvoice = async () => {
+  // Combined function to generate and send invoice
+  const handleGenerateAndSendInvoice = async () => {
     if (!orderData.current) {
       toast.error("Order data not available")
       return
@@ -431,15 +444,107 @@ export default function PaymentSuccess() {
         await fetchOrderProducts(orderData.current.id, orderData.current)
       }
 
-      // Use the separate invoice generation function
-      const url = await generateInvoice(orderData.current)
+      // Generate the invoice
+      const { url, base64 } = await generateInvoice(orderData.current)
       setInvoiceUrl(url)
-      toast.success("Invoice generated successfully")
+      setInvoiceBase64(base64)
+
+      // Now send the invoice via email
+      setIsSendingEmail(true)
+
+      const response = await fetch("/api/send-invoice", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: orderData.current.email,
+          name: orderData.current.name,
+          lastname: orderData.current.lastname,
+          orderId: orderData.current.id,
+          pdfBase64: base64,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        console.error("Email sending error details:", data)
+        throw new Error(data.error || "Failed to send email")
+      }
+
+      console.log("Email sent successfully:", data)
+      toast.success("Invoice sent to your email")
+      setEmailSent(true)
+      setEmailError(null)
     } catch (error) {
-      console.error("Error generating invoice:", error)
-      toast.error("Failed to generate invoice: " + (error instanceof Error ? error.message : "Unknown error"))
+      console.error("Error in invoice process:", error)
+
+      // Set error state but don't show toast for email error
+      // We'll still show the invoice for download
+      if (error instanceof Error) {
+        setEmailError(error.message)
+      } else {
+        setEmailError("Unknown error")
+      }
+
+      // Only show toast for invoice generation error
+      if (!invoiceUrl) {
+        toast.error("Failed to generate invoice: " + (error instanceof Error ? error.message : "Unknown error"))
+      }
     } finally {
       setIsGeneratingInvoice(false)
+      setIsSendingEmail(false)
+    }
+  }
+
+  // Separate function for manual retry of email sending
+  const handleSendInvoiceEmail = async () => {
+    if (!orderData.current || !invoiceBase64) {
+      toast.error("Invoice not generated yet")
+      return
+    }
+
+    setIsSendingEmail(true)
+
+    try {
+      const response = await fetch("/api/send-invoice", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: orderData.current.email,
+          name: orderData.current.name,
+          lastname: orderData.current.lastname,
+          orderId: orderData.current.id,
+          pdfBase64: invoiceBase64,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        console.error("Email sending error details:", data)
+        throw new Error(data.error || "Failed to send email")
+      }
+
+      console.log("Email sent successfully:", data)
+      toast.success("Invoice sent to your email")
+      setEmailSent(true)
+      setEmailError(null)
+    } catch (error) {
+      console.error("Error sending invoice email:", error)
+
+      if (error instanceof Error) {
+        setEmailError(error.message)
+        toast.error(`Failed to send email: ${error.message}`)
+      } else {
+        setEmailError("Unknown error")
+        toast.error("Failed to send email: Unknown error")
+      }
+    } finally {
+      setIsSendingEmail(false)
     }
   }
 
@@ -501,41 +606,68 @@ export default function PaymentSuccess() {
               </p>
             )}
 
-            {orderCreated && !invoiceUrl && (
+            {orderCreated && isGeneratingInvoice && (
+              <div className="mt-4 text-center">
+                <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto"></div>
+                <p className="text-gray-600 mt-2">
+                  {isSendingEmail ? "Sending invoice to your email..." : "Generating your invoice..."}
+                </p>
+              </div>
+            )}
+
+            {orderCreated && !invoiceUrl && !isGeneratingInvoice && (
               <button
-                onClick={handleGenerateInvoice}
-                disabled={isGeneratingInvoice}
-                className="mt-4 flex items-center justify-center w-full p-3 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700 transition-colors disabled:bg-blue-400"
+                onClick={handleGenerateAndSendInvoice}
+                className="mt-4 flex items-center justify-center w-full p-3 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700 transition-colors"
               >
-                {isGeneratingInvoice ? (
-                  <>
-                    <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"></div>
-                    Generating Invoice...
-                  </>
-                ) : !scriptsLoaded ? (
-                  <>
-                    <FileText className="mr-2 h-5 w-5" />
-                    Generate Invoice
-                    <span className="ml-2 text-xs">(PDF libraries loading...)</span>
-                  </>
-                ) : (
-                  <>
-                    <FileText className="mr-2 h-5 w-5" />
-                    Generate Invoice
-                  </>
-                )}
+                <FileText className="mr-2 h-5 w-5" />
+                Generate Invoice
               </button>
             )}
 
             {invoiceUrl && (
-              <a
-                href={invoiceUrl}
-                download={`invoice-${orderData.current?.id || "order"}.pdf`}
-                className="mt-4 flex items-center justify-center w-full p-3 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700 transition-colors"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                Download Invoice
-              </a>
+              <>
+                <a
+                  href={invoiceUrl}
+                  download={`invoice-${orderData.current?.id || "order"}.pdf`}
+                  className="mt-4 flex items-center justify-center w-full p-3 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  <Download className="mr-2 h-5 w-5" />
+                  Download Invoice
+                </a>
+
+                {emailSent && (
+                  <div className="mt-3 text-green-600 flex items-center justify-center">
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                    Invoice sent to your email
+                  </div>
+                )}
+
+                {emailError && !emailSent && (
+                  <>
+                    <div className="mt-3 text-red-600 text-sm">
+                      <p>Could not send email: {emailError}</p>
+                    </div>
+                    <button
+                      onClick={handleSendInvoiceEmail}
+                      disabled={isSendingEmail}
+                      className="mt-2 flex items-center justify-center w-full p-3 bg-indigo-600 text-white font-bold rounded-md hover:bg-indigo-700 transition-colors disabled:bg-indigo-400"
+                    >
+                      {isSendingEmail ? (
+                        <>
+                          <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                          Retrying...
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="mr-2 h-5 w-5" />
+                          Retry Sending Email
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
+              </>
             )}
 
             <button

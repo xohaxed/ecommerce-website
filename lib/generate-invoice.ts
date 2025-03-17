@@ -3,9 +3,9 @@ import type { OrderData } from "@/types/order"
 /**
  * Generates a PDF invoice for an order
  * @param orderData The order data to generate the invoice for
- * @returns A Promise that resolves to a URL for the generated PDF
+ * @returns A Promise that resolves to a URL for the generated PDF and the PDF as base64
  */
-export async function generateInvoice(orderData: OrderData): Promise<string> {
+export async function generateInvoice(orderData: OrderData): Promise<{ url: string; base64: string }> {
   if (!orderData) {
     throw new Error("Order data not available")
   }
@@ -55,9 +55,9 @@ export async function generateInvoice(orderData: OrderData): Promise<string> {
 
     // Add company info
     doc.setFontSize(10)
-    doc.text("Your Company Name", 200, 30, { align: "right" })
-    doc.text("123 Business Street", 200, 35, { align: "right" })
-    doc.text("City, Country, ZIP", 200, 40, { align: "right" })
+    doc.text("GadgetSouq", 200, 30, { align: "right" })
+    doc.text(" B.P. 32, El Alia", 200, 35, { align: "right" })
+    doc.text("Bab Ezzouar, Alger, Algérie, 16111", 200, 40, { align: "right" })
 
     // Add invoice info
     doc.setFontSize(12)
@@ -94,7 +94,7 @@ export async function generateInvoice(orderData: OrderData): Promise<string> {
         orderData.products && orderData.products.length > 0
           ? orderData.products.map((p) => ({
               ...p,
-              title: p.title , // Ensure we have a title
+              title: p.title, // Ensure we have a title
             }))
           : [{ title: "Order Total", amount: 1, price: orderData.total || 0 }]
 
@@ -158,7 +158,7 @@ export async function generateInvoice(orderData: OrderData): Promise<string> {
         orderData.products && orderData.products.length > 0
           ? orderData.products.map((p) => ({
               ...p,
-              title: p.title , // Ensure we have a title
+              title: p.title, // Ensure we have a title
             }))
           : [{ title: "Order Total", amount: 1, price: orderData.total || 0 }]
 
@@ -203,9 +203,13 @@ export async function generateInvoice(orderData: OrderData): Promise<string> {
     // Save PDF and create URL
     const pdfBlob = doc.output("blob")
     const url = URL.createObjectURL(pdfBlob)
+
+    // Also get base64 for email attachment
+    const base64 = doc.output("datauristring")
+
     console.log("PDF URL created:", !!url)
 
-    return url
+    return { url, base64 }
   } catch (error) {
     console.error("Error generating invoice:", error)
 
@@ -235,11 +239,7 @@ export async function generateInvoice(orderData: OrderData): Promise<string> {
       doc.setFontSize(10)
       if (orderData.products && orderData.products.length > 0) {
         orderData.products.forEach((product, index) => {
-          doc.text(
-            `${product.title } x${product.amount} - $${(product.price * product.amount).toFixed(2)}`,
-            30,
-            yPos,
-          )
+          doc.text(`${product.title} x${product.amount} - $${(product.price * product.amount).toFixed(2)}`, 30, yPos)
           yPos += 7
         })
       }
@@ -260,7 +260,9 @@ export async function generateInvoice(orderData: OrderData): Promise<string> {
 
       const pdfBlob = doc.output("blob")
       const url = URL.createObjectURL(pdfBlob)
-      return url
+      const base64 = doc.output("datauristring")
+
+      return { url, base64 }
     } catch (fallbackError) {
       console.error("Fallback PDF generation failed:", fallbackError)
       throw new Error("Could not generate invoice. Please try again later.")
