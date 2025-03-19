@@ -59,10 +59,12 @@ const ProductItem = ({
       <ProductItemRating productRating={product?.rating} />
       <Link
         href={`/product/${product?.slug}`}
-        className="block flex justify-center items-center w-full uppercase bg-skyBlue px-0 py-2 text-base font-bold text-deepBlue hover:bg-lightBlue focus:outline-none focus:ring-2"
+        className="block w-full rounded-lg bg-white px-4 py-3 text-center text-base font-semibold text-sky-700 shadow-md transition-all duration-300 ease-in-out hover:bg-gray-100 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-gray-300"
       >
-        <p>View product</p>
+        <p>View Product</p>
       </Link>
+
+
     </div>
   );
 };

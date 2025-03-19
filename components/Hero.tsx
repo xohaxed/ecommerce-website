@@ -28,10 +28,10 @@ const Hero = () => {
             earum obcaecati. Optio, nam!
           </p>
           <div className="flex gap-x-1 max-lg:flex-col max-lg:gap-y-1">
-            <button className="bg-gray text-blue-600 font-bold px-12 py-3 max-lg:text-xl max-sm:text-lg hover:bg-skyBlue">
+            <button className="bg-gray text-sky-600 font-bold px-12 py-3 max-lg:text-xl max-sm:text-lg hover:bg-skyBlue">
               BUY NOW
             </button>
-            <button className="bg-gray text-blue-600 font-bold px-12 py-3 max-lg:text-xl max-sm:text-lg hover:bg-skyBlue">
+            <button className="bg-gray text-sky-600 font-bold px-12 py-3 max-lg:text-xl max-sm:text-lg hover:bg-skyBlue">
               LEARN MORE
             </button>
           </div>

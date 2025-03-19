@@ -26,16 +26,22 @@ const SearchInput = () => {
 
   return (
     <form className="flex w-full justify-center" onSubmit={searchProducts}>
-      <input
-        type="text"
-        value={searchInput}
-        onChange={(e) => setSearchInput(e.target.value)}
-        placeholder="Type here"
-        className="bg-gray-50 input input-bordered w-[70%] rounded-r-none outline-none focus:outline-none max-sm:w-full"
-      />
-      <button type="submit" className="btn bg-blue-600 text-white rounded-l-none rounded-r-xl hover:bg-blue-600">
-        Search
-      </button>
+      <div className="flex w-[80%] mx-auto">
+        <input
+          type="text"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Type here"
+          className="flex-grow px-5 py-3 border border-gray-300 rounded-l-full text-gray-700 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-sky-300"
+        />
+        <button
+          type="submit"
+          className="px-6 py-3 bg-sky-500 text-white font-semibold rounded-r-full hover:bg-sky-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-sky-300"
+        >
+          Search
+        </button>
+      </div>
+
     </form>
   );
 };

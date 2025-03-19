@@ -43,23 +43,23 @@ const HeaderTop = () => {
           <>
           <li className="flex items-center">
             <Link href="/login" className="flex items-center gap-x-2 font-semibold">
-              <FaRegUser className="text-deepBlue" />
-              <span className="text-deepBlue">Login</span>
+              <FaRegUser className="text-black" />
+              <span className="text-black">Login</span>
             </Link>
           </li>
           <li className="flex items-center">
             <Link href="/register" className="flex items-center gap-x-2 font-semibold">
-              <FaRegUser className="text-deepBlue" />
-              <span className="text-deepBlue">Register</span>
+              <FaRegUser className="text-black" />
+              <span className="text-black">Register</span>
             </Link>
           </li>
           </>
           ) :  (<>
-          <span className="ml-10 text-base">{session.user?.email}</span>
+          <span className="ml-10 text-gray-500">{session.user?.email}</span>
           <li className="flex items-center">
             <button onClick={() => handleLogout()} className="flex items-center gap-x-2 font-semibold">
-              <FaRegUser className="text-deepBlue" />
-              <span className="text-deepBlue">Log out</span>
+              <FaRegUser className="text-red-500 " />
+              <span className="text-red-500 ">Log out</span>
             </button>
           </li>
           </>)}

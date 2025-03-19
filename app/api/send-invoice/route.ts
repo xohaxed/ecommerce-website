@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
 
     // Send email with the PDF invoice
     const info = await transporter.sendMail({
-      from: `"GadgetSouq" <${process.env.EMAIL_USER || testAccount?.user}>`,
+      from: `"GadgetSouq Support" <${process.env.EMAIL_USER || testAccount?.user}>`,
       to: email,
       subject: `Your Invoice #${orderId}`,
       html: `

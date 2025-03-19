@@ -1,396 +1,384 @@
-"use client";
-import { DashboardSidebar } from "@/components";
-import { isValidEmailAddressFormat, isValidNameOrLastname } from "@/lib/utils";
-import Image from "next/image";
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
-import toast from "react-hot-toast";
+"use client"
+
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import Image from "next/image"
+import Link from "next/link"
+import toast from "react-hot-toast"
+import { isValidEmailAddressFormat, isValidNameOrLastname } from "@/lib/utils"
+
+import { PageHeader } from "@/components/page-header"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
 
 interface OrderProduct {
-  id: string;
-  customerOrderId: string;
-  productId: string;
-  quantity: number;
+  id: string
+  customerOrderId: string
+  productId: string
+  quantity: number
   product: {
-    id: string;
-    slug: string;
-    title: string;
-    mainImage: string;
-    price: number;
-    rating: number;
-    description: string;
-    manufacturer: string;
-    inStock: number;
-    categoryId: string;
-  };
+    id: string
+    slug: string
+    title: string
+    mainImage: string
+    price: number
+    rating: number
+    description: string
+    manufacturer: string
+    inStock: number
+    categoryId: string
+  }
 }
 
-const AdminSingleOrder = () => {
-  const [orderProducts, setOrderProducts] = useState<OrderProduct[]>();
-  const [order, setOrder] = useState<Order>({
-    id: "",
-    adress: "",
-    apartment: "",
-    company: "",
-    dateTime: "",
-    email: "",
-    lastname: "",
-    name: "",
-    phone: "",
-    postalCode: "",
-    city: "",
-    country: "",
-    orderNotice: "",
-    status: "processing",
-    total: 0,
-  });
-  const params = useParams<{ id: string }>();
+interface Order {
+  id: string
+  adress: string
+  apartment: string
+  company: string
+  dateTime: string
+  email: string
+  lastname: string
+  name: string
+  phone: string
+  postalCode: string
+  city: string
+  country: string
+  orderNotice: string
+  status: "processing" | "delivered" | "canceled"
+  total: number
+}
 
-  const router = useRouter();
+export default function OrderDetailPage({ params }: { params: { id: string } }) {
+  const [order, setOrder] = useState<Order | null>(null)
+  const [orderProducts, setOrderProducts] = useState<OrderProduct[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
 
-  useEffect(() => {
-    const fetchOrderData = async () => {
-      const response = await fetch(
-        `http://localhost:3001/api/orders/${params?.id}`
-      );
-      const data: Order = await response.json();
-      setOrder(data);
-    };
+  const handleInputChange = (field: string, value: string) => {
+    if (!order) return
 
-    const fetchOrderProducts = async () => {
-      const response = await fetch(
-        `http://localhost:3001/api/order-product/${params?.id}`
-      );
-      const data: OrderProduct[] = await response.json();
-      setOrderProducts(data);
-    };
+    setOrder({
+      ...order,
+      [field]: value,
+    })
+  }
 
-    fetchOrderData();
-    fetchOrderProducts();
-  }, [params?.id]);
+  const validateForm = () => {
+    if (!order) return false
+
+    if (
+      !order.name ||
+      !order.lastname ||
+      !order.phone ||
+      !order.email ||
+      !order.company ||
+      !order.adress ||
+      !order.apartment ||
+      !order.city ||
+      !order.country ||
+      !order.postalCode
+    ) {
+      toast.error("Please fill all fields")
+      return false
+    }
+
+    if (!isValidNameOrLastname(order.name)) {
+      toast.error("You entered invalid name format")
+      return false
+    }
+
+    if (!isValidNameOrLastname(order.lastname)) {
+      toast.error("You entered invalid lastname format")
+      return false
+    }
+
+    if (!isValidEmailAddressFormat(order.email)) {
+      toast.error("You entered invalid email format")
+      return false
+    }
+
+    return true
+  }
 
   const updateOrder = async () => {
-    if (
-      order?.name.length > 0 &&
-      order?.lastname.length > 0 &&
-      order?.phone.length > 0 &&
-      order?.email.length > 0 &&
-      order?.company.length > 0 &&
-      order?.adress.length > 0 &&
-      order?.apartment.length > 0 &&
-      order?.city.length > 0 &&
-      order?.country.length > 0 &&
-      order?.postalCode.length > 0
-    ) {
-      if (!isValidNameOrLastname(order?.name)) {
-        toast.error("You entered invalid name format");
-        return;
-      }
+    if (!validateForm()) return
 
-      if (!isValidNameOrLastname(order?.lastname)) {
-        toast.error("You entered invalid lastname format");
-        return;
-      }
-
-      if (!isValidEmailAddressFormat(order?.email)) {
-        toast.error("You entered invalid email format");
-        return;
-      }
-
-      fetch(`http://localhost:3001/api/orders/${order?.id}`, {
-        method: "PUT", // or 'PUT'
+    setIsLoading(true)
+    try {
+      const response = await fetch(`http://localhost:3001/api/orders/${order?.id}`, {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(order),
       })
-        .then((response) => {
-          if (response.status === 200) {
-            toast.success("Order updated successfuly");
-          } else {
-            throw Error("There was an error while updating a order");
-          }
-        })
-        .catch((error) =>
-          toast.error("There was an error while updating a order")
-        );
-    } else {
-      toast.error("Please fill all fields");
+
+      if (response.status === 200) {
+        toast.success("Order updated successfully")
+      } else {
+        throw new Error("Error updating order")
+      }
+    } catch (error) {
+      toast.error("Error updating order")
+    } finally {
+      setIsLoading(false)
     }
-  };
+  }
 
   const deleteOrder = async () => {
-    const requestOptions = {
-      method: "DELETE",
-    };
+    if (!order) return
 
-    fetch(
-      `http://localhost:3001/api/order-product/${order?.id}`,
-      requestOptions
-    ).then((response) => {
-      fetch(
-        `http://localhost:3001/api/orders/${order?.id}`,
-        requestOptions
-      ).then((response) => {
-        toast.success("Order deleted successfully");
-        router.push("/admin/orders");
-      });
-    });
-  };
+    setIsLoading(true)
+    try {
+      await fetch(`http://localhost:3001/api/order-product/${order.id}`, {
+        method: "DELETE",
+      })
+
+      const response = await fetch(`http://localhost:3001/api/orders/${order.id}`, {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        toast.success("Order deleted successfully")
+        router.push("/admin/orders")
+      } else {
+        throw new Error("Error deleting order")
+      }
+    } catch (error) {
+      toast.error("Error deleting order")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const fetchOrderData = async () => {
+      try {
+        const response = await fetch(`http://localhost:3001/api/orders/${params.id}`)
+        const data = await response.json()
+        setOrder(data)
+      } catch (error) {
+        console.error("Error fetching order:", error)
+      }
+    }
+
+    const fetchOrderProducts = async () => {
+      try {
+        const response = await fetch(`http://localhost:3001/api/order-product/${params.id}`)
+        const data = await response.json()
+        setOrderProducts(data)
+      } catch (error) {
+        console.error("Error fetching order products:", error)
+      }
+    }
+
+    fetchOrderData()
+    fetchOrderProducts()
+  }, [params.id])
+
+  if (!order) {
+    return <div>Loading...</div>
+  }
 
   return (
-    <div className="bg-white flex justify-start max-w-screen-2xl mx-auto xl:h-full max-xl:flex-col max-xl:gap-y-5">
-      <DashboardSidebar />
-      <div className="flex flex-col gap-y-7 xl:ml-5 w-full max-xl:px-5">
-        <h1 className="text-3xl font-semibold">Order details</h1>
-        <div className="mt-5">
-          <label className="w-full">
-            <div>
-              <span className="text-xl font-bold">Order ID:</span>
-              <span className="text-base"> {order?.id}</span>
-            </div>
-          </label>
-        </div>
-        <div className="flex gap-x-2 max-sm:flex-col">
-          <div>
-            <label className="form-control w-full max-w-xs">
-              <div className="label">
-                <span className="label-text">Name:</span>
+    <div className="space-y-6">
+      <PageHeader title="Order Details" description="View and manage order information" />
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Order Information</CardTitle>
+            <CardDescription>Order ID: {order.id}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">First Name</Label>
+                <Input id="name" value={order.name} onChange={(e) => handleInputChange("name", e.target.value)} />
               </div>
-              <input
-                type="text"
-                className="input input-bordered w-full max-w-xs"
-                value={order?.name}
-                onChange={(e) => setOrder({ ...order, name: e.target.value })}
-              />
-            </label>
-          </div>
-          <div>
-            <label className="form-control w-full max-w-xs">
-              <div className="label">
-                <span className="label-text">Lastname:</span>
-              </div>
-              <input
-                type="text"
-                className="input input-bordered w-full max-w-xs"
-                value={order?.lastname}
-                onChange={(e) =>
-                  setOrder({ ...order, lastname: e.target.value })
-                }
-              />
-            </label>
-          </div>
-        </div>
 
-        <div>
-          <label className="form-control w-full max-w-xs">
-            <div className="label">
-              <span className="label-text">Phone number:</span>
-            </div>
-            <input
-              type="text"
-              className="input input-bordered w-full max-w-xs"
-              value={order?.phone}
-              onChange={(e) => setOrder({ ...order, phone: e.target.value })}
-            />
-          </label>
-        </div>
-
-        <div>
-          <label className="form-control w-full max-w-xs">
-            <div className="label">
-              <span className="label-text">Email adress:</span>
-            </div>
-            <input
-              type="email"
-              className="input input-bordered w-full max-w-xs"
-              value={order?.email}
-              onChange={(e) => setOrder({ ...order, email: e.target.value })}
-            />
-          </label>
-        </div>
-
-        <div>
-          <label className="form-control w-full max-w-xs">
-            <div className="label">
-              <span className="label-text">Company (optional):</span>
-            </div>
-            <input
-              type="text"
-              className="input input-bordered w-full max-w-xs"
-              value={order?.company}
-              onChange={(e) => setOrder({ ...order, company: e.target.value })}
-            />
-          </label>
-        </div>
-
-        <div className="flex gap-x-2 max-sm:flex-col">
-          <div>
-            <label className="form-control w-full max-w-xs">
-              <div className="label">
-                <span className="label-text">Address:</span>
-              </div>
-              <input
-                type="text"
-                className="input input-bordered w-full max-w-xs"
-                value={order?.adress}
-                onChange={(e) => setOrder({ ...order, adress: e.target.value })}
-              />
-            </label>
-          </div>
-
-          <div>
-            <label className="form-control w-full max-w-xs">
-              <div className="label">
-                <span className="label-text">Apartment, suite, etc. :</span>
-              </div>
-              <input
-                type="text"
-                className="input input-bordered w-full max-w-xs"
-                value={order?.apartment}
-                onChange={(e) =>
-                  setOrder({ ...order, apartment: e.target.value })
-                }
-              />
-            </label>
-          </div>
-        </div>
-
-        <div className="flex gap-x-2 max-sm:flex-col">
-          <div>
-            <label className="form-control w-full max-w-xs">
-              <div className="label">
-                <span className="label-text">City:</span>
-              </div>
-              <input
-                type="text"
-                className="input input-bordered w-full max-w-xs"
-                value={order?.city}
-                onChange={(e) => setOrder({ ...order, city: e.target.value })}
-              />
-            </label>
-          </div>
-
-          <div>
-            <label className="form-control w-full max-w-xs">
-              <div className="label">
-                <span className="label-text">Country:</span>
-              </div>
-              <input
-                type="text"
-                className="input input-bordered w-full max-w-xs"
-                value={order?.country}
-                onChange={(e) =>
-                  setOrder({ ...order, country: e.target.value })
-                }
-              />
-            </label>
-          </div>
-
-          <div>
-            <label className="form-control w-full max-w-xs">
-              <div className="label">
-                <span className="label-text">Postal Code:</span>
-              </div>
-              <input
-                type="text"
-                className="input input-bordered w-full max-w-xs"
-                value={order?.postalCode}
-                onChange={(e) =>
-                  setOrder({ ...order, postalCode: e.target.value })
-                }
-              />
-            </label>
-          </div>
-        </div>
-
-        <div>
-          <label className="form-control w-full max-w-xs">
-            <div className="label">
-              <span className="label-text">Order status</span>
-            </div>
-            <select
-              className="select select-bordered"
-              value={order?.status}
-              onChange={(e) =>
-                setOrder({
-                  ...order,
-                  status: e.target.value as
-                    | "processing"
-                    | "delivered"
-                    | "canceled",
-                })
-              }
-            >
-              <option value="processing">Processing</option>
-              <option value="delivered">Delivered</option>
-              <option value="canceled">Canceled</option>
-            </select>
-          </label>
-        </div>
-        <div>
-          <label className="form-control">
-            <div className="label">
-              <span className="label-text">Order notice:</span>
-            </div>
-            <textarea
-              className="textarea textarea-bordered h-24"
-              value={order?.orderNotice || ""}
-              onChange={(e) =>
-                setOrder({ ...order, orderNotice: e.target.value })
-              }
-            ></textarea>
-          </label>
-        </div>
-        <div>
-          {orderProducts?.map((product) => (
-            <div className="flex items-center gap-x-4" key={product?.id}>
-              <Image
-                src={product?.product?.mainImage ? `/${product?.product?.mainImage}` : "/product_placeholder.jpg"}
-                alt={product?.product?.title}
-                width={50}
-                height={50}
-                className="w-auto h-auto"
-              />
-              <div>
-                <Link href={`/product/${product?.product?.slug}`}>
-                  {product?.product?.title}
-                </Link>
-                <p>
-                  ${product?.product?.price} * {product?.quantity} items
-                </p>
+              <div className="space-y-2">
+                <Label htmlFor="lastname">Last Name</Label>
+                <Input
+                  id="lastname"
+                  value={order.lastname}
+                  onChange={(e) => handleInputChange("lastname", e.target.value)}
+                />
               </div>
             </div>
-          ))}
-          <div className="flex flex-col gap-y-2 mt-10">
-            <p className="text-2xl">Subtotal: ${order?.total}</p>
-            <p className="text-2xl">Tax 20%: ${order?.total / 5}</p>
-            <p className="text-2xl">Shipping: $5</p>
-            <p className="text-3xl font-semibold">
-              Total: ${order?.total + order?.total / 5 + 5}
-            </p>
-          </div>
-          <div className="flex gap-x-2 max-sm:flex-col mt-5">
-            <button
-              type="button"
-              className="uppercase bg-blue-500 px-10 py-5 text-lg border border-black border-gray-300 font-bold text-white shadow-sm hover:bg-blue-600 hover:text-white focus:outline-none focus:ring-2"
-              onClick={updateOrder}
-            >
-              Update order
-            </button>
-            <button
-              type="button"
-              className="uppercase bg-red-600 px-10 py-5 text-lg border border-black border-gray-300 font-bold text-white shadow-sm hover:bg-red-700 hover:text-white focus:outline-none focus:ring-2"
-              onClick={deleteOrder}
-            >
-              Delete order
-            </button>
-          </div>
-        </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={order.email}
+                onChange={(e) => handleInputChange("email", e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input id="phone" value={order.phone} onChange={(e) => handleInputChange("phone", e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="company">Company (optional)</Label>
+              <Input
+                id="company"
+                value={order.company}
+                onChange={(e) => handleInputChange("company", e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="status">Order Status</Label>
+              <Select
+                value={order.status}
+                onValueChange={(value: "processing" | "delivered" | "canceled") => handleInputChange("status", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="processing">Processing</SelectItem>
+                  <SelectItem value="delivered">Delivered</SelectItem>
+                  <SelectItem value="canceled">Canceled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="orderNotice">Order Notice</Label>
+              <Textarea
+                id="orderNotice"
+                value={order.orderNotice || ""}
+                onChange={(e) => handleInputChange("orderNotice", e.target.value)}
+                rows={3}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Shipping Address</CardTitle>
+            <CardDescription>Delivery information</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="adress">Address</Label>
+              <Input id="adress" value={order.adress} onChange={(e) => handleInputChange("adress", e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="apartment">Apartment, suite, etc.</Label>
+              <Input
+                id="apartment"
+                value={order.apartment}
+                onChange={(e) => handleInputChange("apartment", e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="city">City</Label>
+                <Input id="city" value={order.city} onChange={(e) => handleInputChange("city", e.target.value)} />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="postalCode">Postal Code</Label>
+                <Input
+                  id="postalCode"
+                  value={order.postalCode}
+                  onChange={(e) => handleInputChange("postalCode", e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="country">Country</Label>
+              <Input
+                id="country"
+                value={order.country}
+                onChange={(e) => handleInputChange("country", e.target.value)}
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    </div>
-  );
-};
 
-export default AdminSingleOrder;
+      <Card>
+        <CardHeader>
+          <CardTitle>Order Items</CardTitle>
+          <CardDescription>Products in this order</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {orderProducts.map((item) => (
+              <div key={item.id} className="flex items-center gap-4 py-2">
+                <div className="h-16 w-16 overflow-hidden rounded-md">
+                  <Image
+                    src={item.product.mainImage ? `/${item.product.mainImage}` : "/placeholder.svg?height=64&width=64"}
+                    alt={item.product.title}
+                    width={64}
+                    height={64}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="flex-1">
+                  <Link href={`/product/${item.product.slug}`} className="font-medium hover:underline">
+                    {item.product.title}
+                  </Link>
+                  <div className="text-sm text-muted-foreground">Quantity: {item.quantity}</div>
+                </div>
+                <div className="text-right font-medium">${(item.product.price * item.quantity).toFixed(2)}</div>
+              </div>
+            ))}
+          </div>
+
+          <Separator className="my-4" />
+
+          <div className="space-y-1.5">
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>${order.total.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Tax (20%)</span>
+              <span>${(order.total / 5).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Shipping</span>
+              <span>$5.00</span>
+            </div>
+            <Separator className="my-2" />
+            <div className="flex justify-between font-bold">
+              <span>Total</span>
+              <span>${(order.total + order.total / 5 + 5).toFixed(2)}</span>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          <Button variant="outline" onClick={() => router.push("/admin/orders")}>
+            Back to Orders
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="destructive" onClick={deleteOrder} disabled={isLoading}>
+              Delete Order
+            </Button>
+            <Button onClick={updateOrder} disabled={isLoading}>
+              Update Order
+            </Button>
+          </div>
+        </CardFooter>
+      </Card>
+    </div>
+  )
+}
+

@@ -1,127 +1,138 @@
-"use client";
-import { DashboardSidebar } from "@/components";
-import { useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
-import toast from "react-hot-toast";
-import { formatCategoryName } from "../../../../../utils/categoryFormating";
-import { convertCategoryNameToURLFriendly } from "../../../../../utils/categoryFormating";
+"use client"
+
+import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import toast from "react-hot-toast"
+import { formatCategoryName, convertCategoryNameToURLFriendly } from "../../../../../utils/categoryFormating"
+
+import { PageHeader } from "@/components/page-header"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { AlertCircle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface DashboardSingleCategoryProps {
-  params: { id: number };
+  params: { id: number }
 }
 
-const DashboardSingleCategory = ({
-  params: { id },
-}: DashboardSingleCategoryProps) => {
+export default function DashboardSingleCategory({ params: { id } }: DashboardSingleCategoryProps) {
   const [categoryInput, setCategoryInput] = useState<{ name: string }>({
     name: "",
-  });
-  const router = useRouter();
+  })
+  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
 
   const deleteCategory = async () => {
+    setIsLoading(true)
     const requestOptions = {
       method: "DELETE",
-    };
-    // sending API request for deleting a category
-    fetch(`http://localhost:3001/api/categories/${id}`, requestOptions)
-      .then((response) => {
-        if (response.status === 204) {
-          toast.success("Category deleted successfully");
-          router.push("/admin/categories");
-        } else {
-          throw Error("There was an error deleting a category");
-        }
-      })
-      .catch((error) => {
-        toast.error("There was an error deleting category");
-      });
-  };
+    }
+
+    try {
+      const response = await fetch(`http://localhost:3001/api/categories/${id}`, requestOptions)
+      if (response.status === 204) {
+        toast.success("Category deleted successfully")
+        router.push("/admin/categories")
+      } else {
+        throw Error("There was an error deleting a category")
+      }
+    } catch (error) {
+      toast.error("There was an error deleting category")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const updateCategory = async () => {
     if (categoryInput.name.length > 0) {
+      setIsLoading(true)
       const requestOptions = {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: convertCategoryNameToURLFriendly(categoryInput.name),
         }),
-      };
-      // sending API request for updating a category
-      fetch(`http://localhost:3001/api/categories/${id}`, requestOptions)
-        .then((response) => {
-          if (response.status === 200) {
-            return response.json();
-          } else {
-            throw Error("Error updating a category");
-          }
-        })
-        .then((data) => toast.success("Category successfully updated"))
-        .catch((error) => {
-          toast.error("There was an error while updating a category");
-        });
+      }
+
+      try {
+        const response = await fetch(`http://localhost:3001/api/categories/${id}`, requestOptions)
+        if (response.status === 200) {
+          toast.success("Category successfully updated")
+        } else {
+          throw Error("Error updating a category")
+        }
+      } catch (error) {
+        toast.error("There was an error while updating a category")
+      } finally {
+        setIsLoading(false)
+      }
     } else {
-      toast.error("For updating a category you must enter all values");
-      return;
+      toast.error("For updating a category you must enter all values")
     }
-  };
+  }
 
   useEffect(() => {
-    // sending API request for getting single categroy
-    fetch(`http://localhost:3001/api/categories/${id}`)
-      .then((res) => {
-        return res.json();
-      })
-      .then((data) => {
+    const fetchCategory = async () => {
+      try {
+        const res = await fetch(`http://localhost:3001/api/categories/${id}`)
+        const data = await res.json()
         setCategoryInput({
           name: data?.name,
-        });
-      });
-  }, [id]);
+        })
+      } catch (error) {
+        toast.error("Error fetching category")
+      }
+    }
+
+    fetchCategory()
+  }, [id])
 
   return (
-    <div className="bg-white flex justify-start max-w-screen-2xl mx-auto xl:h-full max-xl:flex-col max-xl:gap-y-5">
-      <DashboardSidebar />
-      <div className="flex flex-col gap-y-7 xl:pl-5 max-xl:px-5 w-full">
-        <h1 className="text-3xl font-semibold">Category details</h1>
-        <div>
-          <label className="form-control w-full max-w-xs">
-            <div className="label">
-              <span className="label-text">Category name:</span>
+    <div className="space-y-6">
+      <PageHeader title="Category Details" description="View and edit category information" />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Edit Category</CardTitle>
+          <CardDescription>Make changes to your category here</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-6">
+            <div className="grid gap-3">
+              <Label htmlFor="name">Category name</Label>
+              <Input
+                id="name"
+                value={formatCategoryName(categoryInput.name)}
+                onChange={(e) => setCategoryInput({ ...categoryInput, name: e.target.value })}
+              />
             </div>
-            <input
-              type="text"
-              className="input input-bordered w-full max-w-xs"
-              value={formatCategoryName(categoryInput.name)}
-              onChange={(e) =>
-                setCategoryInput({ ...categoryInput, name: e.target.value })
-              }
-            />
-          </label>
-        </div>
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          <Button variant="outline" onClick={() => router.push("/admin/categories")}>
+            Cancel
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="destructive" onClick={deleteCategory} disabled={isLoading}>
+              Delete Category
+            </Button>
+            <Button onClick={updateCategory} disabled={isLoading}>
+              Update Category
+            </Button>
+          </div>
+        </CardFooter>
+      </Card>
 
-        <div className="flex gap-x-2 max-sm:flex-col">
-          <button
-            type="button"
-            className="uppercase bg-blue-500 px-10 py-5 text-lg border border-black border-gray-300 font-bold text-white shadow-sm hover:bg-blue-600 hover:text-white focus:outline-none focus:ring-2"
-            onClick={updateCategory}
-          >
-            Update category
-          </button>
-          <button
-            type="button"
-            className="uppercase bg-red-600 px-10 py-5 text-lg border border-black border-gray-300 font-bold text-white shadow-sm hover:bg-red-700 hover:text-white focus:outline-none focus:ring-2"
-            onClick={deleteCategory}
-          >
-            Delete category
-          </button>
-        </div>
-        <p className="text-xl text-error max-sm:text-lg">
-          Note: if you delete this category, you will delete all products
-          associated with the category.
-        </p>
-      </div>
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Warning</AlertTitle>
+        <AlertDescription>
+          If you delete this category, you will delete all products associated with the category.
+        </AlertDescription>
+      </Alert>
     </div>
-  );
-};
+  )
+}
 
-export default DashboardSingleCategory;

@@ -1,97 +1,103 @@
-"use client";
-import { CustomButton, DashboardSidebar } from "@/components";
-import { nanoid } from "nanoid";
-import Link from "next/link";
-import React, { useEffect, useState } from "react";
-import { formatCategoryName } from "../../../../utils/categoryFormating";
+"use client"
 
-const DashboardCategory = () => {
-  const [categories, setCategories] = useState<Category[]>([]);
+import { useEffect, useState } from "react"
+import Link from "next/link"
+import { formatCategoryName } from "../../../../utils/categoryFormating"
+import type { ColumnDef } from "@tanstack/react-table"
+import { ArrowUpDown, Plus } from "lucide-react"
 
-  // getting all categories to be displayed on the all categories page
+import { PageHeader } from "@/components/page-header"
+import { DataTable } from "@/components/data-table"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+
+interface Category {
+  id: string
+  name: string
+}
+
+const columns: ColumnDef<Category>[] = [
+  {
+    id: "select",
+    header: ({ table }) => (
+      <Checkbox
+        checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
+        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+        aria-label="Select all"
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        checked={row.getIsSelected()}
+        onCheckedChange={(value) => row.toggleSelected(!!value)}
+        aria-label="Select row"
+      />
+    ),
+    enableSorting: false,
+    enableHiding: false,
+  },
+  {
+    accessorKey: "name",
+    header: ({ column }) => {
+      return (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Name
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      )
+    },
+    cell: ({ row }) => <div>{formatCategoryName(row.getValue("name"))}</div>,
+  },
+  {
+    id: "actions",
+    cell: ({ row }) => {
+      const category = row.original
+
+      return (
+        <div className="text-right">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href={`/admin/categories/${category.id}`}>Details</Link>
+          </Button>
+        </div>
+      )
+    },
+  },
+]
+
+export default function CategoriesPage() {
+  const [categories, setCategories] = useState<Category[]>([])
+
   useEffect(() => {
-    fetch("http://localhost:3001/api/categories")
-      .then((res) => {
-        return res.json();
-      })
-      .then((data) => {
-        setCategories(data);
-      });
-  }, []);
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch("http://localhost:3001/api/categories")
+        const data = await res.json()
+        setCategories(data)
+      } catch (error) {
+        console.error("Failed to fetch categories:", error)
+      }
+    }
+
+    fetchCategories()
+  }, [])
 
   return (
-    <div className="bg-white flex justify-start max-w-screen-2xl mx-auto h-full max-xl:flex-col max-xl:h-fit max-xl:gap-y-4">
-      <DashboardSidebar />
-      <div className="w-full">
-        <h1 className="text-3xl font-semibold text-center mb-5">
-          All Categories
-        </h1>
-        <div className="flex justify-end mb-5">
-          <Link href="/admin/categories/new">
-            <CustomButton
-              buttonType="button"
-              customWidth="110px"
-              paddingX={10}
-              paddingY={5}
-              textSize="base"
-              text="Add new category"
-            />
-          </Link>
-        </div>
-        <div className="xl:ml-5 w-full max-xl:mt-5 overflow-auto w-full h-[80vh]">
-          <table className="table table-md table-pin-cols">
-            {/* head */}
-            <thead>
-              <tr>
-                <th>
-                  <label>
-                    <input type="checkbox" className="checkbox" />
-                  </label>
-                </th>
-                <th>Name</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {categories &&
-                categories.map((category: Category) => (
-                  <tr key={nanoid()}>
-                    <th>
-                      <label>
-                        <input type="checkbox" className="checkbox" />
-                      </label>
-                    </th>
+    <div className="space-y-6">
+      <PageHeader
+        title="Categories"
+        description="Manage your product categories"
+        actions={
+          <Button asChild>
+            <Link href="/admin/categories/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Add New Category
+            </Link>
+          </Button>
+        }
+      />
 
-                    <td>
-                      <div>
-                        <p>{formatCategoryName(category?.name)}</p>
-                      </div>
-                    </td>
-
-                    <th>
-                      <Link
-                        href={`/admin/categories/${category?.id}`}
-                        className="btn btn-ghost btn-xs"
-                      >
-                        details
-                      </Link>
-                    </th>
-                  </tr>
-                ))}
-            </tbody>
-            {/* foot */}
-            <tfoot>
-              <tr>
-                <th></th>
-                <th>Name</th>
-                <th></th>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
+      <DataTable columns={columns} data={categories} searchKey="name" searchPlaceholder="Filter categories..." />
     </div>
-  );
-};
+  )
+}
 
-export default DashboardCategory;

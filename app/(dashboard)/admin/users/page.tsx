@@ -1,99 +1,125 @@
-"use client";
-import { CustomButton, DashboardSidebar } from "@/components";
-import { nanoid } from "nanoid";
-import Link from "next/link";
-import React, { useEffect, useState } from "react";
+"use client"
 
-const DashboardUsers = () => {
-  const [users, setUsers] = useState<User[]>([]);
+import { useEffect, useState } from "react"
+import Link from "next/link"
+import type { ColumnDef } from "@tanstack/react-table"
+import { ArrowUpDown, Plus } from "lucide-react"
+
+import { PageHeader } from "@/components/page-header"
+import { DataTable } from "@/components/data-table"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+
+interface User {
+  id: string
+  email: string
+  role: string
+}
+
+const columns: ColumnDef<User>[] = [
+  {
+    id: "select",
+    header: ({ table }) => (
+      <Checkbox
+        checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
+        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+        aria-label="Select all"
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        checked={row.getIsSelected()}
+        onCheckedChange={(value) => row.toggleSelected(!!value)}
+        aria-label="Select row"
+      />
+    ),
+    enableSorting: false,
+    enableHiding: false,
+  },
+  {
+    accessorKey: "email",
+    header: ({ column }) => {
+      return (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Email
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      )
+    },
+    cell: ({ row }) => {
+      const email = row.getValue("email") as string
+      const initials = email.substring(0, 2).toUpperCase()
+
+      return (
+        <div className="flex items-center gap-2">
+          <Avatar className="h-8 w-8">
+            <AvatarFallback>{initials}</AvatarFallback>
+          </Avatar>
+          <span>{email}</span>
+        </div>
+      )
+    },
+  },
+  {
+    accessorKey: "role",
+    header: "Role",
+    cell: ({ row }) => {
+      const role = row.getValue("role") as string
+      return <Badge variant={role === "admin" ? "default" : "secondary"}>{role}</Badge>
+    },
+  },
+  {
+    id: "actions",
+    cell: ({ row }) => {
+      const user = row.original
+
+      return (
+        <div className="text-right">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href={`/admin/users/${user.id}`}>Details</Link>
+          </Button>
+        </div>
+      )
+    },
+  },
+]
+
+export default function UsersPage() {
+  const [users, setUsers] = useState<User[]>([])
 
   useEffect(() => {
-    // sending API request for all users
-    fetch("http://localhost:3001/api/users")
-      .then((res) => {
-        return res.json();
-      })
-      .then((data) => {
-        setUsers(data);
-      });
-  }, []);
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch("http://localhost:3001/api/users")
+        const data = await res.json()
+        setUsers(data)
+      } catch (error) {
+        console.error("Failed to fetch users:", error)
+      }
+    }
+
+    fetchUsers()
+  }, [])
 
   return (
-    <div className="bg-white flex justify-start max-w-screen-2xl mx-auto h-full max-xl:flex-col max-xl:h-fit max-xl:gap-y-4">
-      <DashboardSidebar />
-      <div className="w-full">
-        <h1 className="text-3xl font-semibold text-center mb-5">All users</h1>
-        <div className="flex justify-end mb-5">
-          <Link href="/admin/users/new">
-            <CustomButton
-              buttonType="button"
-              customWidth="110px"
-              paddingX={10}
-              paddingY={5}
-              textSize="base"
-              text="Add new user"
-            />
-          </Link>
-        </div>
-        <div className="xl:ml-5 w-full max-xl:mt-5 overflow-auto w-full h-[80vh]">
-          <table className="table table-md table-pin-cols">
-            {/* head */}
-            <thead>
-              <tr>
-                <th>
-                  <label>
-                    <input type="checkbox" className="checkbox" />
-                  </label>
-                </th>
-                <th>Email</th>
-                <th>Role</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* row 1 */}
-              {users &&
-                users.map((user) => (
-                  <tr key={nanoid()}>
-                    <th>
-                      <label>
-                        <input type="checkbox" className="checkbox" />
-                      </label>
-                    </th>
+    <div className="space-y-6">
+      <PageHeader
+        title="Users"
+        description="Manage user accounts and permissions"
+        actions={
+          <Button asChild>
+            <Link href="/admin/users/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Add New User
+            </Link>
+          </Button>
+        }
+      />
 
-                    <td>
-                      <div className="flex items-center gap-3">
-                        <p>{user?.email}</p>
-                      </div>
-                    </td>
-                    <td>
-                      <p>{user?.role}</p>
-                    </td>
-                    <th>
-                      <Link
-                        href={`/admin/users/${user?.id}`}
-                        className="btn btn-ghost btn-xs"
-                      >
-                        details
-                      </Link>
-                    </th>
-                  </tr>
-                ))}
-            </tbody>
-            {/* foot */}
-            <tfoot>
-              <tr>
-                <th></th>
-                <th>Email</th>
-                <th>Role</th>
-                <th></th>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
+      <DataTable columns={columns} data={users} searchKey="email" searchPlaceholder="Search users..." />
     </div>
-  );
-};
+  )
+}
 
-export default DashboardUsers;
