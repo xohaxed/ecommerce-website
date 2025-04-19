@@ -10,6 +10,7 @@ import { RecentSales } from "@/components/recent-sales"
 import { StatsElement } from "@/components/stats-element"
 
 export default function DashboardPage() {
+  const [chartData, setChartData] = useState<{ name: string; total: number }[]>([]) // Initialize with empty data
   const [stats, setStats] = useState({
     totalRevenue: 0,
     totalOrders: 0,
@@ -20,10 +21,12 @@ export default function DashboardPage() {
     revenueTrend: 0,
   })
 
+  const [recentSales, setRecentSales] = useState<any[]>([]) // State to store recent sales
+
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch("admin/api")
+        const res = await fetch("/admin/api")
         const data = await res.json()
         setStats(data)
       } catch (err) {
@@ -31,10 +34,40 @@ export default function DashboardPage() {
       }
     }
 
+    const fetchChartData = async () => {
+      try {
+        const res = await fetch("/api/overviewData") // Fetch the chart data from your API
+        const data = await res.json()
+
+        const monthsData = [
+          "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+        ]
+
+        const updatedData = monthsData.map((month, index) => ({
+          name: month,
+          total: data.find((item: any) => item.name === index + 1)?.total || 0,
+        }));
+
+        setChartData(updatedData) // Set the chart data
+      } catch (err) {
+        console.error("Failed to fetch chart data:", err)
+      }
+    }
+
+    const fetchRecentSales = async () => {
+      try {
+        const res = await fetch("/api/recentSales") // Fetch recent sales data from your API
+        const data = await res.json()
+        setRecentSales(data) // Set recent sales data
+      } catch (err) {
+        console.error("Failed to fetch recent sales:", err)
+      }
+    }
+
     fetchStats()
+    fetchChartData()
+    fetchRecentSales() // Fetch recent sales data when the page loads
   }, [])
-
-
 
   return (
     <div className="space-y-6">
@@ -48,7 +81,6 @@ export default function DashboardPage() {
           icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
           trend={stats.revenueTrend}
         />
-
         <StatsElement
           title="Total Orders"
           value={stats.totalOrders.toLocaleString()}
@@ -69,7 +101,7 @@ export default function DashboardPage() {
           <h4 className="text-2xl font-medium mb-2">Number of visitors today</h4>
           <p className="text-4xl font-bold mb-2">{stats.visitors.toLocaleString()}</p>
           <p className="text-green-300 flex items-center gap-1">
-            <ArrowUp className="h-4 w-4 " />
+            <ArrowUp className="h-4 w-4" />
             {stats.visitorsTrend}% Since last month
           </p>
         </CardContent>
@@ -82,20 +114,19 @@ export default function DashboardPage() {
             <CardDescription>Monthly sales overview</CardDescription>
           </CardHeader>
           <CardContent className="pl-2">
-            <Overview />
+            <Overview data={chartData} />
           </CardContent>
         </Card>
         <Card className="col-span-3">
           <CardHeader>
             <CardTitle>Recent Sales</CardTitle>
-            <CardDescription>You made 265 sales this month.</CardDescription>
+            <CardDescription>You made {recentSales.length} sales this month.</CardDescription>
           </CardHeader>
           <CardContent>
-            <RecentSales />
+            <RecentSales sales={recentSales} /> {/* Pass recent sales data here */}
           </CardContent>
         </Card>
       </div>
     </div>
   )
 }
-
